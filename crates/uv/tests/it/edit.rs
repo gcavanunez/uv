@@ -3116,6 +3116,197 @@ fn add_path_adjacent_directory() -> Result<()> {
     Ok(())
 }
 
+/// Test `uv add --sync-constraints` to sync constraints from a file to `tool.uv.constraint-dependencies`.
+#[test]
+fn add_sync_constraints_from_file() -> Result<()> {
+    let context = TestContext::new("3.12");
+
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(indoc! {r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = []
+    "#})?;
+
+    // Create a constraints file
+    let constraints_txt = context.temp_dir.child("constraints.txt");
+    constraints_txt.write_str(indoc! {r"
+        anyio<4
+        click<8
+        flask>=2.0.0,<3.0.0
+    "})?;
+
+    // Run `uv add --sync-constraints constraints.txt` with a package
+    uv_snapshot!(context.filters(), context.add().arg("flask").arg("--sync-constraints").arg("constraints.txt"), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Synced 3 constraints from `constraints.txt`
+    Resolved 7 packages in [TIME]
+    Prepared 6 packages in [TIME]
+    Installed 6 packages in [TIME]
+     + click==7.1.2
+     + flask==2.0.3
+     + itsdangerous==2.1.2
+     + jinja2==3.1.3
+     + markupsafe==2.1.5
+     + werkzeug==3.0.1
+    ");
+
+    let pyproject_toml = context.read("pyproject.toml");
+
+    insta::with_settings!({
+        filters => context.filters(),
+    }, {
+        assert_snapshot!(
+            pyproject_toml, @r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = [
+            "flask>=2.0.3",
+        ]
+
+        [tool.uv]
+        constraint-dependencies = [
+            "anyio<4",
+            "click<8",
+            "flask>=2.0.0,<3.0.0",
+        ]
+        "#
+        );
+    });
+
+    Ok(())
+}
+
+/// Test `uv add --sync-constraints` with an empty constraints file.
+#[test]
+fn add_sync_constraints_empty_file() -> Result<()> {
+    let context = TestContext::new("3.12");
+
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(indoc! {r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = []
+    "#})?;
+
+    // Create an empty constraints file
+    let constraints_txt = context.temp_dir.child("constraints.txt");
+    constraints_txt.write_str("")?;
+
+    // Run `uv add --sync-constraints constraints.txt` with a package
+    uv_snapshot!(context.filters(), context.add().arg("anyio").arg("--sync-constraints").arg("constraints.txt"), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    warning: Constraints file `constraints.txt` does not contain any constraints
+    Resolved 4 packages in [TIME]
+    Prepared 3 packages in [TIME]
+    Installed 3 packages in [TIME]
+     + anyio==4.3.0
+     + idna==3.6
+     + sniffio==1.3.1
+    ");
+
+    let pyproject_toml = context.read("pyproject.toml");
+
+    insta::with_settings!({
+        filters => context.filters(),
+    }, {
+        assert_snapshot!(
+            pyproject_toml, @r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = [
+            "anyio>=4.3.0",
+        ]
+        "#
+        );
+    });
+
+    Ok(())
+}
+
+/// Test `uv add --sync-constraints` replaces existing constraint-dependencies.
+#[test]
+fn add_sync_constraints_replaces_existing() -> Result<()> {
+    let context = TestContext::new("3.12");
+
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(indoc! {r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = []
+
+        [tool.uv]
+        constraint-dependencies = ["old-constraint<1.0"]
+    "#})?;
+
+    // Create a constraints file with new constraints
+    let constraints_txt = context.temp_dir.child("constraints.txt");
+    constraints_txt.write_str(indoc! {r"
+        anyio<5
+        idna>=3.0
+    "})?;
+
+    // Run `uv add --sync-constraints constraints.txt` with a package
+    uv_snapshot!(context.filters(), context.add().arg("anyio").arg("--sync-constraints").arg("constraints.txt"), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Synced 2 constraints from `constraints.txt`
+    Resolved 4 packages in [TIME]
+    Prepared 3 packages in [TIME]
+    Installed 3 packages in [TIME]
+     + anyio==4.3.0
+     + idna==3.6
+     + sniffio==1.3.1
+    ");
+
+    let pyproject_toml = context.read("pyproject.toml");
+
+    insta::with_settings!({
+        filters => context.filters(),
+    }, {
+        assert_snapshot!(
+            pyproject_toml, @r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = [
+            "anyio>=4.3.0",
+        ]
+
+        [tool.uv]
+        constraint-dependencies = [
+            "anyio<5",
+            "idna>=3.0",
+        ]
+        "#
+        );
+    });
+
+    Ok(())
+}
+
 /// Update a requirement, modifying the source and extras.
 #[test]
 #[cfg(feature = "git")]

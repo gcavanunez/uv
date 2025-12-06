@@ -2197,6 +2197,7 @@ async fn run_project(
                 args.only_install_package,
                 requirements,
                 constraints,
+                args.sync_constraints,
                 args.marker,
                 args.editable,
                 args.dependency_type,

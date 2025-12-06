@@ -1561,6 +1561,7 @@ pub(crate) struct AddSettings {
     pub(crate) packages: Vec<String>,
     pub(crate) requirements: Vec<PathBuf>,
     pub(crate) constraints: Vec<PathBuf>,
+    pub(crate) sync_constraints: Option<String>,
     pub(crate) marker: Option<MarkerTree>,
     pub(crate) dependency_type: DependencyType,
     pub(crate) editable: Option<bool>,
@@ -1601,6 +1602,7 @@ impl AddSettings {
             packages,
             requirements,
             constraints,
+            sync_constraints,
             marker,
             dev,
             optional,
@@ -1730,6 +1732,7 @@ impl AddSettings {
                 .into_iter()
                 .filter_map(Maybe::into_option)
                 .collect(),
+            sync_constraints,
             marker,
             dependency_type,
             raw,
