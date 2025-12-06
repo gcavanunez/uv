@@ -961,6 +961,10 @@ uv add [OPTIONS] <PACKAGES|--requirements <REQUIREMENTS>>
 </ul></dd><dt id="uv-add--rev"><a href="#uv-add--rev"><code>--rev</code></a> <i>rev</i></dt><dd><p>Commit to use when adding a dependency from Git</p>
 </dd><dt id="uv-add--script"><a href="#uv-add--script"><code>--script</code></a> <i>script</i></dt><dd><p>Add the dependency to the specified Python script, rather than to a project.</p>
 <p>If provided, uv will add the dependency to the script's inline metadata table, in adherence with PEP 723. If no such inline metadata table is present, a new one will be created and added to the script. When executed via <code>uv run</code>, uv will create a temporary environment for the script with all inline dependencies installed.</p>
+</dd><dt id="uv-add--sync-constraints"><a href="#uv-add--sync-constraints"><code>--sync-constraints</code></a> <i>url-or-path</i></dt><dd><p>Sync constraints from a URL or file path to <code>tool.uv.constraint-dependencies</code>.</p>
+<p>The constraints will be read from the given URL or file path, and will be added to the project's <code>pyproject.toml</code> file in <code>tool.uv.constraint-dependencies</code>.</p>
+<p>This makes the constraints explicit and reproducible, unlike the <code>--constraint</code> flag which only applies during resolution without persisting the constraints to the project file.</p>
+<p>The file format should be a <code>requirements.txt</code>-like file (e.g., one requirement per line).</p>
 </dd><dt id="uv-add--tag"><a href="#uv-add--tag"><code>--tag</code></a> <i>tag</i></dt><dd><p>Tag to use when adding a dependency from Git</p>
 </dd><dt id="uv-add--upgrade"><a href="#uv-add--upgrade"><code>--upgrade</code></a>, <code>-U</code></dt><dd><p>Allow package upgrades, ignoring pinned versions in any existing output file. Implies <code>--refresh</code></p>
 </dd><dt id="uv-add--upgrade-package"><a href="#uv-add--upgrade-package"><code>--upgrade-package</code></a>, <code>-P</code> <i>upgrade-package</i></dt><dd><p>Allow upgrades for a specific package, ignoring pinned versions in any existing output file. Implies <code>--refresh-package</code></p>
