@@ -4059,6 +4059,18 @@ pub struct AddArgs {
     #[arg(long, short, alias = "constraint", env = EnvVars::UV_CONSTRAINT, value_delimiter = ' ', value_parser = parse_maybe_file_path)]
     pub constraints: Vec<Maybe<PathBuf>>,
 
+    /// Sync constraints from a URL or file path to `tool.uv.constraint-dependencies`.
+    ///
+    /// The constraints will be read from the given URL or file path, and will be added to the
+    /// project's `pyproject.toml` file in `tool.uv.constraint-dependencies`.
+    ///
+    /// This makes the constraints explicit and reproducible, unlike the `--constraint` flag which
+    /// only applies during resolution without persisting the constraints to the project file.
+    ///
+    /// The file format should be a `requirements.txt`-like file (e.g., one requirement per line).
+    #[arg(long, value_name = "URL_OR_PATH")]
+    pub sync_constraints: Option<String>,
+
     /// Apply this marker to all added packages.
     #[arg(long, short, value_parser = MarkerTree::from_str)]
     pub marker: Option<MarkerTree>,

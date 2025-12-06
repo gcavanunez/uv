@@ -25,7 +25,7 @@ use uv_distribution_types::{
     Index, IndexName, IndexUrl, IndexUrls, NameRequirementSpecification, Requirement,
     RequirementSource, UnresolvedRequirement, VersionId,
 };
-use uv_fs::{LockedFile, LockedFileError, Simplified};
+use uv_fs::{CWD, LockedFile, LockedFileError, Simplified};
 use uv_git::GIT_STORE;
 use uv_normalize::{DEV_DEPENDENCIES, DefaultExtras, DefaultGroups, ExtraName, PackageName};
 use uv_pep508::{MarkerTree, VersionOrUrl};
@@ -33,6 +33,7 @@ use uv_preview::{Preview, PreviewFeatures};
 use uv_python::{Interpreter, PythonDownloads, PythonEnvironment, PythonPreference, PythonRequest};
 use uv_redacted::DisplaySafeUrl;
 use uv_requirements::{NamedRequirementsResolver, RequirementsSource, RequirementsSpecification};
+use uv_requirements_txt::RequirementsTxt;
 use uv_resolver::FlatIndex;
 use uv_scripts::{Pep723Metadata, Pep723Script};
 use uv_settings::PythonInstallMirrors;
@@ -76,6 +77,7 @@ pub(crate) async fn add(
     only_install_package: Vec<PackageName>,
     requirements: Vec<RequirementsSource>,
     constraints: Vec<RequirementsSource>,
+    sync_constraints: Option<String>,
     marker: Option<MarkerTree>,
     editable: Option<bool>,
     dependency_type: DependencyType,
@@ -665,6 +667,59 @@ pub(crate) async fn add(
                 toml.ensure_optional_dependency(extra)?;
             }
             _ => {}
+        }
+    }
+
+    // If `--sync-constraints` is provided, fetch the constraints from the URL or file path
+    // and set them in `tool.uv.constraint-dependencies`.
+    if let Some(sync_constraints_source) = sync_constraints {
+        // Scripts don't support constraint-dependencies
+        if matches!(&target, AddTarget::Script(_, _)) {
+            bail!("`--sync-constraints` is not supported for scripts");
+        }
+
+        // Parse the source as a path (could be URL or file path)
+        let path = std::path::PathBuf::from(&sync_constraints_source);
+
+        // Fetch and parse the constraints file
+        let requirements_txt = RequirementsTxt::parse_with_cache(
+            &path,
+            &*CWD,
+            &client_builder,
+            &mut Default::default(),
+        )
+        .await
+        .with_context(|| format!("Failed to read constraints from `{sync_constraints_source}`"))?;
+
+        // Extract constraint strings from the requirements and constraints
+        let mut constraint_strings: Vec<String> = Vec::new();
+
+        // Add constraints from the constraints section (these are Requirement<VerbatimParsedUrl>)
+        for constraint in requirements_txt.constraints {
+            constraint_strings.push(constraint.to_string());
+        }
+
+        // Add requirements as constraints (these are RequirementEntry with .requirement field)
+        for req in requirements_txt.requirements {
+            constraint_strings.push(req.requirement.to_string());
+        }
+
+        if constraint_strings.is_empty() {
+            warn_user_once!(
+                "Constraints file `{}` does not contain any constraints",
+                sync_constraints_source
+            );
+        } else {
+            // Set the constraint-dependencies in the pyproject.toml
+            toml.set_constraint_dependencies(&constraint_strings)?;
+
+            writeln!(
+                printer.stderr(),
+                "Synced {} constraint{} from `{}`",
+                constraint_strings.len(),
+                if constraint_strings.len() == 1 { "" } else { "s" },
+                sync_constraints_source.cyan()
+            )?;
         }
     }
 

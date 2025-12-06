@@ -1239,6 +1239,42 @@ impl PyProjectTomlMut {
 
         Ok(())
     }
+
+    /// Sets the `tool.uv.constraint-dependencies` array, replacing any existing constraints.
+    ///
+    /// This is used by `uv add --sync-constraints` to populate constraints from a URL or file.
+    pub fn set_constraint_dependencies(&mut self, constraints: &[String]) -> Result<(), Error> {
+        // Get or create `tool.uv`.
+        let tool_uv = self
+            .doc
+            .entry("tool")
+            .or_insert(implicit())
+            .as_table_mut()
+            .ok_or(Error::MalformedSources)?
+            .entry("uv")
+            .or_insert(Item::Table(Table::new()))
+            .as_table_mut()
+            .ok_or(Error::MalformedSources)?;
+
+        // Create a new array with all the constraints.
+        let mut array = Array::new();
+        for constraint in constraints {
+            array.push(constraint.as_str());
+        }
+
+        // Format the array as multiline if there are multiple constraints.
+        if constraints.len() > 1 {
+            reformat_array_multiline(&mut array);
+        }
+
+        // Set the constraint-dependencies array.
+        tool_uv.insert(
+            "constraint-dependencies",
+            Item::Value(Value::Array(array)),
+        );
+
+        Ok(())
+    }
 }
 
 /// Returns an implicit table.
